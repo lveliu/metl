@@ -75,10 +75,18 @@ public class Engine {
 				reference = old;
 			}
 		}
-		
-		
+		assert(reference != null);
 		Engine engine = reference.get();
-		
+		if(engine == null) {
+			synchronized (reference) {//加锁
+				engine = reference.get();
+				if(engine == null) {
+					//创建引擎
+					reference.set(engine);//
+				}
+			}
+		}
+		assert(engine != null);
 		return engine;
 	}
 }
