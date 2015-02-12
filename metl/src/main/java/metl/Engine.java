@@ -4,10 +4,13 @@
  */
 package metl;
 
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import metl.util.CollectionUtils;
+import metl.util.ConfigUtils;
 import metl.util.StringUtils;
 import metl.util.VolatileReference;
 
@@ -64,7 +67,7 @@ public class Engine {
 	//统一获得引擎入口
 	public static Engine getEngine(String configPath, Properties configProperties) {
 		if(StringUtils.isEmpty(configPath)) {
-			configPath = METL_DEFAULT_PROPERTIES;
+			configPath = METL_PROPERTIES;
 		}
 		
 		VolatileReference<Engine> reference = ENGINES.get(configPath);
@@ -88,5 +91,27 @@ public class Engine {
 		}
 		assert(engine != null);
 		return engine;
+	}
+	
+	//初始化配置文件
+	public static Properties initProperties(String configPath, Properties configProperties){
+		Map<String, String> systemProperties = ConfigUtils.filterWithPrefix(METL_KEY_PREFIX, (Map) System.getProperties(), false);//获取系统配置参数
+		Map<String, String> systemEnv = ConfigUtils.filterWithPrefix(METL_KEY_PREFIX, System.getenv(), true);//获取系统中环境变量
+		Properties properties = ConfigUtils.mergeProperties(METL_DEFAULT_PROPERTIES, configPath, configProperties, systemProperties, systemEnv);//合并所有的配置文件
+		String[] modes = StringUtils.splitByComma(properties.getProperty(MODES_KEY));//获得用户配置模式
+		if(CollectionUtils.isEmpty(modes)) {//根据用户配置模式不同在一次合并配置文件
+			Object[] configs = new Object[modes.length + 5];
+			configs[0] = METL_DEFAULT_PROPERTIES;
+			for (int i = 0; i < modes.length; i ++) {
+				configs[i + 1] = METL_PREFIX + modes[i] + PROPERTIES_SUFFIX;
+			}
+			configs[modes.length + 1] = configPath;
+			configs[modes.length + 2] = configProperties;
+			configs[modes.length + 3] = systemProperties;
+			configs[modes.length + 4] = systemEnv;
+			properties = ConfigUtils.mergeProperties(configs);
+		}
+		properties.setProperty(ENGINE_NAME, configPath);
+		return properties;
 	}
 }
